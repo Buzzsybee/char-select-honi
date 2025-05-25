@@ -6,9 +6,7 @@ function reset_honi_states(index)
     gExtrasStates[index] = {
         index = network_global_index_from_local(0),
         drillVel = 0,
-        chargedVel = 0,
         canTwirlAct = true,
-        canGroundDive = true,
         twirlFromDive = true,
         airDash = true
     }
@@ -18,42 +16,42 @@ for i = 0x (MAX_PLAYERS - 1) do
     reset_honi_states(i)
 end
 
+
+local function honi_on_set_action(m)
+    --i also dont know how this works, placeholder fot the moment
+    local e = gExtrasStates[m.playerIndex]
+    if m.action == ACT_TWIRLING then
+        set_mario_action(m, ACT_HONI_TWIRL, 0)
+    end
+end
+
 local function update_honi(m)
     --idunno what update functions do yett... placeholder for when i do tho
-end
-
---[[
-local function update_honi_speed(m)
-    local targSpeedMax;
-    local targSpeed;
-
-    if (m.floor ~= 0 and m.floor.type == SURFACE_SLOW) then
-        targSpeedMax = 50
-    else
-        targSpeedMax = 50
+    local e = gExtrasStates[m.playerIndex]
+    if m.action == ACT_HONI_TWIRL then
+        e.canTwirlAct = false
+    end
+    if m.pos.y == m.floorHeight then
+        e.canTwirlAct = true
     end
 
-    targSpeed = m.intendedMag < targSpeedMax and m.intendedMag or targSpeedMax;
-    
-    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x800 - m.forwardVel*2, 0x800 - m.forwardVel*2);
-    apply_slope_accel(m);
+    if m.input & INPUT_A_PRESSED ~= 0 and m.pos.y > m.floorHeight and e.canTwirlAct then
+        set_mario_action(m, ACT_HONI_TWIRL, 0)
+    end
 end
-
-Squishy did something like this for walking speed, i dont really know how it works, i might ask her :3c
-]]--
 
 ACT_HONI_TWIRL     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR|ACT_FLAG_ATTACKING)
 ACT_HONI_DRILL     = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING)
 ACT_HONI_DIVE      = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING|ACT_FLAG_DIVING)
-ACT_HONI_AIR_JUMP  = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR)
 ACT_HONI_AIR_DASH  = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR|ACT_FLAG_ATTACKING)
 
 --- @param m MarioState
 local function honi_twirl(m)
     local e = gExtrasStates[m.playerIndex]
     local mag = (m.controller.stickMag) / 64
+
+    set_mario_animation(m, CHAR_ANIM_TWIRLING)
     if m.actionTimer == 0 then
-        set_mario_animation(m, CHAR_ANIM_TWIRLING)
         m.vel.y = 20
         m.faceAngle.y = m.intendedYaw
         m.forwardVel = 10
@@ -61,7 +59,6 @@ local function honi_twirl(m)
     
     m.marioObj.header.gfx.angle.y = m.marioObj.header.gfx.angle.y + 0x9000 -- this is supposed to make u spin, idunno if it workss
 
-    --update_honi_speed(m)
 
     local air = perform_air_step(m)
     if air == AIR_STEP_LANDED then 
@@ -70,11 +67,6 @@ local function honi_twirl(m)
                 set_mario_action(m, ACT_WALKING, 0)
             end
         else set_mario_action(m, ACT_IDLE, 0) end
-    end
-    if (m.controller.buttonPressed & B_BUTTON ~= 0) and e.canTwirlAct then
-        m.vel.y = 10
-        m.forwardVel = 30
-        set_mario_action(m, ACT_DIVE, 0) -- replace with the airdash when added :3c
     end
 
     m.faceAngle.y = approach_s32(convert_s16(m.faceAngle.y), m.intendedYaw, 0x100)
@@ -85,3 +77,8 @@ local function honi_twirl(m)
 end
 
 hook_mario_action(ACT_HONI_TWIRL,{every_frame = honi_twirl})
+
+_G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_MARIO_UPDATE, update_honi)
+_G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_LEVEL_INIT, reset_honi_states)
+_G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_SET_MARIO_ACTION, honi_on_set_action)
+
