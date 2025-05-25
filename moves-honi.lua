@@ -6,6 +6,7 @@ function reset_honi_states(index)
     gExtrasStates[index] = {
         index = network_global_index_from_local(0),
         drillVel = 0,
+        chargedVelFlick = 0,
         canTwirlAct = true,
         twirlFromDive = true,
         airDash = true
@@ -16,6 +17,13 @@ for i = 0x (MAX_PLAYERS - 1) do
     reset_honi_states(i)
 end
 
+local twirlActs = {
+    [ACT_JUMPING] = true,
+    [ACT_DOUBLE_JUMP] = true,
+    [ACT_TRIPLE_JUMP] = true,
+    [ACT_HOLD_JUMP] = true,
+    [ACT_GROUND_POUND] = true,
+}
 
 local function honi_on_set_action(m)
     --i also dont know how this works, placeholder fot the moment
@@ -44,6 +52,8 @@ ACT_HONI_TWIRL     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR|ACT_F
 ACT_HONI_DRILL     = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING)
 ACT_HONI_DIVE      = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING|ACT_FLAG_DIVING)
 ACT_HONI_AIR_DASH  = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR|ACT_FLAG_ATTACKING)
+ACT_HONI_SKATE     = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING)
+ACT_HONI_FLICK     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_GROUP_STATIONARY)
 
 --- @param m MarioState
 local function honi_twirl(m)
