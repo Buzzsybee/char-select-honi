@@ -49,8 +49,8 @@ local function honi_twirl(m)
     --local mag = (m.controller.stickMag) / 64
 
     if m.actionTimer == 0 then
-        --m.vel.y = 30
-        --m.faceAngle.y = m.intendedYaw
+        m.vel.y = 20
+        m.faceAngle.y = m.intendedYaw
         --m.forwardVel = 10
         play_character_sound(m, CHAR_SOUND_HOOHOO)
     end
@@ -70,7 +70,7 @@ local function honi_twirl(m)
     e.canTwirl = false -- if already twirling, cant twirl again :3
 
     -- Saves rotation to Extra States
-    e.gfxAngleY = e.gfxAngleY + 0x1800
+    e.gfxAngleY = e.gfxAngleY + 0x2800
     -- Applies rotation
     m.marioObj.header.gfx.angle.y = e.gfxAngleY
 
@@ -124,7 +124,10 @@ local canTwirlFromAct = {
     [ACT_JUMP] = true,
     [ACT_DOUBLE_JUMP] = true,
     [ACT_TRIPLE_JUMP] = true,
-    [ACT_HOLD_JUMP] = true
+    [ACT_HOLD_JUMP] = true,
+    [ACT_SIDE_FLIP] = true,
+    [ACT_BACKFLIP] = true,
+    [ACT_LONG_JUMP] = true,
 }
 
 local function update_honi(m)
@@ -152,7 +155,7 @@ local function honi_interact(m, interact)
     local e = gExtrasStates[m.playerIndex]
     djui_chat_message_create("Interact: " .. tostring(interact))
     if interact == INTERACT_BOUNCE_TOP and m.action == ACT_HONI_TWIRL then
-        m.vel.y = 80
+        m.vel.y = 100
     end
 end
 
