@@ -10,7 +10,7 @@ if not _G.charSelectExists then
 end
 
 local function on_character_select_load()
-    CT_CHAR = _G.charSelect.character_add(
+    CHAR_HONI = _G.charSelect.character_add(
         "Honi", -- Character Name
         "Just a floaty gal, would u believe ittt?!?!?!?!?!?!", -- Description
         "Honi", -- Credits
