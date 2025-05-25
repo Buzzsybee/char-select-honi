@@ -1,6 +1,5 @@
--- name:[CS]Honi
--- description:Did uknoe idunnohow to code? ye i don't :3c
-
+-- name: [CS] Honi
+-- description: Did uknoe idunnohow to code? ye i don't :3c
 
 local TEXT_MOD_NAME = "[CS] Honi"
 
