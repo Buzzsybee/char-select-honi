@@ -1,5 +1,6 @@
 if not _G.charSelectExists then return end
 
+-- Extra player variables, similar to gMarioStates
 gExtrasStates = {}
 function reset_honi_states(index)
     if index == nil then index = 0 end
@@ -13,7 +14,8 @@ function reset_honi_states(index)
     }
 end
 
-for i = 0x (MAX_PLAYERS - 1) do
+-- Iterates through all players
+for i = 0, (MAX_PLAYERS - 1) do
     reset_honi_states(i)
 end
 
@@ -40,7 +42,7 @@ local function update_honi(m)
         e.canTwirl = true -- if touching land, u can twirl again midair.
         e.airDash = true -- if touching land, u can air dash again.
     end
-    if m.action == ACT_DIVE then 
+    if m.action == ACT_DIVE then
         e.airDash = false
     end
 
@@ -105,7 +107,7 @@ local function honi_drill(m)
     if mag > 0 then -- this is supposed to check if ur holding the stick, but i dont knoo
         if m.forwardVel < 30 then m.forwardVel = 30 end
         m.forwardVel = m.forwardVel + (mag * 5)
-        if m.forwardVel > 50 the m.forwardVel = 50 end
+        if m.forwardVel > 50 then m.forwardVel = 50 end
     elseif mag == 0 then -- and this is if ur not holding stickk
         m.forwardVel = m.forwardVel - 2
     end
