@@ -8,7 +8,20 @@ if not _G.charSelectExists then
     return 0
 end
 
-local E_MODEL_HONI = smlua_model_util_get_id("honi_geo")      -- Located in "actors"
+local E_MODEL_HONI = smlua_model_util_get_id("honi_geo")   -- Located in "actors"
+
+local PALETTE_HONI = {
+    [PANTS]  = "5656FF",
+    [SHIRT]  = "4F8B4A",
+    [GLOVES] = "360099",
+    [SHOES]  = "995B53",
+    [HAIR]   = "8F1F31",
+    [SKIN]   = "FFA787",
+    [CAP]    = "5153FF",
+	[EMBLEM] = "000672"
+}
+
+    _G.charSelect.character_add_palette_preset(E_MODEL_HONI, PALETTE_HONI)
 
 
 CHAR_HONI = _G.charSelect.character_add(
