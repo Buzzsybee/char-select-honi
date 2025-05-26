@@ -8,12 +8,15 @@ if not _G.charSelectExists then
     return 0
 end
 
+local E_MODEL_HONI = smlua_model_util_get_id("honi_geo")      -- Located in "actors"
+
+
 CHAR_HONI = _G.charSelect.character_add(
     "Honi", -- Character Name
     "Just a floaty gal, would u believe ittt?!?!?!?!?!?!", -- Description
     "Honi", -- Credits
     "03fc7b",           -- Menu Color
-    E_MODEL_MARIO,       -- Character Model
+    E_MODEL_HONI,       -- Character Model
     CT_MARIO,           -- Override Character
     TEX_CHAR_LIFE_ICON, -- Life Icon
     1,                  -- Camera Scale
