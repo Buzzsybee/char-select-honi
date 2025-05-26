@@ -12,7 +12,7 @@ local function convert_s16(num)
     return num
 end
 
--- Extra player variables, similar to gMarioStates
+--Extra player variables, similar to gMarioStates
 gExtrasStates = {}
 function reset_honi_states(index)
     if index == nil then index = 0 end
@@ -140,7 +140,6 @@ local canTwirlFromAct = {
 }
 
 local function update_honi(m)
-    --idunno what update functions do yett... fully
     local e = gExtrasStates[m.playerIndex]
 
     -- Global Action Timer 
@@ -153,6 +152,7 @@ local function update_honi(m)
     if m.action & ACT_FLAG_AIR == 0 then
         e.canTwirl = true -- if in air, cant twirl from other actions
     end
+    if m.action == ACT_WALL_KICK_AIR then e.canTwirl = true end -- can twirl after a wallkick, either having twirled already or not.
     djui_chat_message_create(tostring(e.canTwirl))
     djui_chat_message_create(tostring(e.actionTick))
     if m.input & INPUT_A_PRESSED ~= 0 and e.canTwirl and canTwirlFromAct[m.action] and e.actionTick > 3 then
