@@ -36,9 +36,8 @@ for i = 0, (MAX_PLAYERS - 1) do
     reset_honi_states(i)
 end
 
-ACT_HONI_TWIRL     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR)
+ACT_HONI_TWIRL     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR) --DONE
 ACT_HONI_DRILL     = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING)
-ACT_HONI_DIVE      = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING|ACT_FLAG_DIVING)
 ACT_HONI_AIR_DASH  = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR|ACT_FLAG_ATTACKING)
 ACT_HONI_SKATE     = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING)
 ACT_HONI_FLING     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_GROUP_STATIONARY)
@@ -57,14 +56,20 @@ local function honi_twirl(m)
     
     common_air_action_step(m, ACT_FREEFALL_LAND, CHAR_ANIM_TWIRL, AIR_STEP_NONE)
 
-    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x100, 0x100);
+    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x1800, 0x1800);
     --m.vel.x = m.forwardVel * sins(m.faceAngle.y)
     --m.vel.z = m.forwardVel * coss(m.faceAngle.y)
 
     if m.input & INPUT_B_PRESSED ~= 0 and e.airDash then
         m.vel.y = 20
         --m.forwardVel = 30
+        m.faceAngle.y = m.intendedYaw
         set_mario_action(m, ACT_DIVE, 0)
+    end
+
+    if m.input & INPUT_Z_PRESSED ~= 0 then
+        m.faceAngle.y = m.intendedYaw
+        set_mario_action(m, ACT_GROUND_POUND, 0)
     end
 
     e.canTwirl = false -- if already twirling, cant twirl again :3
@@ -95,11 +100,14 @@ local function honi_drill(m)
         m.forwardVel = m.forwardVel - 2
     end
 
-    m.marioObj.header.gfx.angle.y = m.marioObj.header.gfx.angle.y + 0x9999
+    -- Saves rotation to Extra States
+    e.gfxAngleY = e.gfxAngleY + 0x2800
+    -- Applies rotation
+    m.marioObj.header.gfx.angle.y = e.gfxAngleY
 
     m.faceAngle.y = approach_s32(convert_s16(m.faceAngle.y), m.intendedYaw, 0x400)
-    m.vel.x = m.forwardVel * sins(m.faceAngle.y)
-    m.vel.z = m.forwardVel * coss(m.faceAngle.y)
+    --m.vel.x = m.forwardVel * sins(m.faceAngle.y)
+    --m.vel.z = m.forwardVel * coss(m.faceAngle.y)
 
     local ground = perform_ground_step(m)
 
@@ -128,6 +136,7 @@ local canTwirlFromAct = {
     [ACT_SIDE_FLIP] = true,
     [ACT_BACKFLIP] = true,
     [ACT_LONG_JUMP] = true,
+    [ACT_WALL_KICK_AIR] = true,
 }
 
 local function update_honi(m)
@@ -149,12 +158,40 @@ local function update_honi(m)
     if m.input & INPUT_A_PRESSED ~= 0 and e.canTwirl and canTwirlFromAct[m.action] and e.actionTick > 3 then
         set_mario_action(m, ACT_HONI_TWIRL, 0)
     end
+
+    if m.action == ACT_LONG_JUMP then
+        if m.input & INPUT_B_PRESSED ~= 0 then
+            m.vel.y = 20
+            --m.forwardVel = 30
+            m.faceAngle.y = m.intendedYaw
+            set_mario_action(m, ACT_DIVE, 0) -- can dive from long jumpppp
+        end
+    end
+
+    if m.action == ACT_FORWARD_ROLLOUT or m.action == ACT_BACKWARD_ROLLOUT then
+        if m.input & INPUT_B_PRESSED ~= 0 then
+            m.vel.y = 20
+            --m.forwardVel = 30
+            m.faceAngle.y = m.intendedYaw
+            set_mario_action(m, ACT_DIVE, 0) -- can dive from rollouts
+        end
+    end
+
+    if m.action == ACT_DIVE_SLIDE then
+        if m.input & INPUT_Z_PRESSED ~= 0 then
+            m.vel.y = 20
+            m.forwardVel = 40
+            m.faceAngle.y = m.intendedYaw
+            set_mario_action(m, ACT_LONG_JUMP, 0) -- can long jump from dive slidesssss
+        end
+    end
 end
 
 local function honi_interact(m, interact)
     local e = gExtrasStates[m.playerIndex]
     djui_chat_message_create("Interact: " .. tostring(interact))
-    if interact == INTERACT_BOUNCE_TOP and m.action == ACT_HONI_TWIRL then
+    if m.action == ACT_HONI_TWIRL and interact == INTERACT_BOUNCE_TOP then
+        e.canTwirl = true
         m.vel.y = 100
     end
 end
