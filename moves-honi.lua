@@ -24,6 +24,7 @@ function reset_honi_states(index)
         canTwirl = true,
         twirlFromDive = true,
         airDash = true,
+        canDoubleJump = true,
 
         gfxAngleX = 0,
         gfxAngleY = 0,
@@ -89,7 +90,7 @@ local function honi_drill(m)
     local mag = (m.controller.stickMag) / 64
 
     set_mario_animation(m, CHAR_ANIM_TWIRLING)
-
+    m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
     if m.actionTimer == 0 then
         m.faceAngle.y = m.intendedYaw
     end
@@ -143,6 +144,7 @@ local canTwirlFromAct = {
 
 local function update_honi(m)
     local e = gExtrasStates[m.playerIndex]
+    local mag = (m.controller.stickMag) / 64
 
     -- Global Action Timer 
     e.actionTick = e.actionTick + 1
@@ -153,7 +155,9 @@ local function update_honi(m)
 
     if m.action & ACT_FLAG_AIR == 0 then
         e.canTwirl = true -- if in air, cant twirl from other actions
+        e.canDoubleJump = true
     end
+
     if m.action == ACT_WALL_KICK_AIR then e.canTwirl = true end -- can twirl after a wallkick, either having twirled already or not.
     djui_chat_message_create(tostring(e.canTwirl))
     djui_chat_message_create(tostring(e.actionTick))
@@ -176,6 +180,9 @@ local function update_honi(m)
             --m.forwardVel = 30
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_DIVE, 0) -- can dive from rollouts
+            
+        elseif m.input & INPUT_A_PRESSED ~= 0 then
+            set_mario_action(m, ACT_HONI_TWIRL, 0)
         end
     end
 
@@ -185,6 +192,28 @@ local function update_honi(m)
             m.forwardVel = 40
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_LONG_JUMP, 0) -- can long jump from dive slidesssss
+        end
+    end
+
+    if m.action == ACT_GROUND_POUND and e.canDoubleJump then
+        if m.input & INPUT_A_PRESSED ~= 0 then
+            if mag > 0 then
+                m.forwardVel = 30 + (mag * 10)
+            end
+
+            e.canDoubleJump = false
+            m.vel.y = 40
+            m.faceAngle.y = m.intendedYaw
+            set_mario_action(m, ACT_DOUBLE_JUMP, 0)
+        end
+    end
+
+    if m.action == ACT_GROUND_POUND_LAND then
+        if m.input & INPUT_B_PRESSED ~= 0 then
+            m.forwardVel = 50
+            m.vel.y = 30
+            m.faceAngle.y = m.intendedYaw
+            set_mario_action(m, ACT_DIVE, 0)
         end
     end
 end
