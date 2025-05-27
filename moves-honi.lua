@@ -52,6 +52,7 @@ local function honi_twirl(m)
         m.faceAngle.y = m.intendedYaw
         --m.forwardVel = 10
         play_character_sound(m, CHAR_SOUND_HOOHOO)
+        m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
     end
     
     common_air_action_step(m, ACT_FREEFALL_LAND, CHAR_ANIM_TWIRL, AIR_STEP_NONE)
