@@ -65,6 +65,7 @@ local function honi_twirl(m)
         --m.forwardVel = 30
         m.faceAngle.y = m.intendedYaw
         set_mario_action(m, ACT_DIVE, 0)
+        m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
     end
 
     if m.input & INPUT_Z_PRESSED ~= 0 then
