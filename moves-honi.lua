@@ -58,7 +58,7 @@ local function honi_twirl(m)
     
     common_air_action_step(m, ACT_FREEFALL_LAND, CHAR_ANIM_TWIRL, AIR_STEP_NONE)
 
-    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x1800, 0x1800);
+    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x2800, 0x2800);
     --m.vel.x = m.forwardVel * sins(m.faceAngle.y)
     --m.vel.z = m.forwardVel * coss(m.faceAngle.y)
 
@@ -67,7 +67,6 @@ local function honi_twirl(m)
         --m.forwardVel = 30
         m.faceAngle.y = m.intendedYaw
         set_mario_action(m, ACT_DIVE, 0)
-        m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
     end
 
     if m.input & INPUT_Z_PRESSED ~= 0 then
@@ -146,6 +145,8 @@ local function update_honi(m)
     local e = gExtrasStates[m.playerIndex]
     local mag = (m.controller.stickMag) / 64
 
+    m.peakHeight = m.pos.y
+
     -- Global Action Timer 
     e.actionTick = e.actionTick + 1
     if e.prevFrameAction ~= m.action then
@@ -158,19 +159,32 @@ local function update_honi(m)
         e.canDoubleJump = true
     end
 
+    if m.action == ACT_DIVE and (m.prevAction == ACT_HONI_TWIRL or m.prevAction == ACT_GROUND_POUND_LAND or (m.prevAction == ACT_DOUBLE_JUMP and not e.canDoubleJump)) then
+        e.gfxAngleZ = e.gfxAngleZ + 0x1800
+        m.marioObj.header.gfx.angle.z = e.gfxAngleZ -- make u spinn when divingg
+        m.marioObj.header.gfx.angle.x = 0
+        m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
+    end
+
+    if m.action == ACT_DOUBLE_JUMP and m.prevAction == ACT_GROUND_POUND then
+        e.gfxAngleY = e.gfxAngleY + 0x2800
+        m.marioObj.header.gfx.angle.y = e.gfxAngleY
+        m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
+    end
+
     if m.action == ACT_WALL_KICK_AIR then e.canTwirl = true end -- can twirl after a wallkick, either having twirled already or not.
-    djui_chat_message_create(tostring(e.canTwirl))
-    djui_chat_message_create(tostring(e.actionTick))
+    --djui_chat_message_create(tostring(e.canTwirl))
+    --djui_chat_message_create(tostring(e.actionTick))
     if m.input & INPUT_A_PRESSED ~= 0 and e.canTwirl and canTwirlFromAct[m.action] and e.actionTick > 3 then
         set_mario_action(m, ACT_HONI_TWIRL, 0)
     end
 
     if m.action == ACT_LONG_JUMP then
         if m.input & INPUT_B_PRESSED ~= 0 then
+            m.faceAngle.y = m.intendedYaw
+            set_mario_action(m, ACT_DIVE, 0)
             m.vel.y = 20
             --m.forwardVel = 30
-            m.faceAngle.y = m.intendedYaw
-            set_mario_action(m, ACT_DIVE, 0) -- can dive from long jumpppp
         end
     end
 
@@ -199,28 +213,29 @@ local function update_honi(m)
         if m.input & INPUT_A_PRESSED ~= 0 then
             if mag > 0 then
                 m.forwardVel = 30 + (mag * 10)
+                m.vel.y = 10
             end
 
             e.canDoubleJump = false
-            m.vel.y = 40
-            m.faceAngle.y = m.intendedYaw
+            m.vel.y = 30
+            m.faceAngle.y = m.intendedYaw      
             set_mario_action(m, ACT_DOUBLE_JUMP, 0)
         end
     end
 
     if m.action == ACT_GROUND_POUND_LAND then
         if m.input & INPUT_B_PRESSED ~= 0 then
-            m.forwardVel = 50
-            m.vel.y = 30
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_DIVE, 0)
+            m.forwardVel = 60
+            m.vel.y = 40
         end
     end
 end
 
 local function honi_interact(m, interact)
     local e = gExtrasStates[m.playerIndex]
-    djui_chat_message_create("Interact: " .. tostring(interact))
+    --djui_chat_message_create("Interact: " .. tostring(interact))
     if m.action == ACT_HONI_TWIRL and interact == INTERACT_BOUNCE_TOP then
         e.canTwirl = true
         m.vel.y = 100
