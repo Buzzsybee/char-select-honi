@@ -9,6 +9,7 @@ if not _G.charSelectExists then
 end
 
 local E_MODEL_HONI = smlua_model_util_get_id("honi_geo")   -- Located in "actors"
+local TEX_ICON_HONI = get_texture_info("honi-icon")
 
 local PALETTE_HONI = {
     [PANTS]  = "5656FF",
@@ -31,7 +32,7 @@ CHAR_HONI = _G.charSelect.character_add(
     "03fc7b",           -- Menu Color
     E_MODEL_HONI,       -- Character Model
     CT_MARIO,           -- Override Character
-    TEX_CHAR_LIFE_ICON, -- Life Icon
+    TEX_ICON_HONI, -- Life Icon
     1,                  -- Camera Scale
     0                   -- Vertical Offset
 )
