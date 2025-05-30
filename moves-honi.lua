@@ -162,7 +162,7 @@ local function update_honi(m)
 
     if m.action == ACT_DIVE and (m.prevAction == ACT_HONI_TWIRL or m.prevAction == ACT_GROUND_POUND_LAND or (m.prevAction == ACT_DOUBLE_JUMP and not e.canDoubleJump)) then
         e.gfxAngleZ = e.gfxAngleZ + 0x1800
-        m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x300, 0x300)
+        m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x500, 0x500)
         set_mario_animation(m, CHAR_ANIM_GROUND_POUND)
         smlua_anim_util_set_animation(m.marioObj, HONI_ANIM_DIVE_ROTATE)
         m.marioObj.header.gfx.angle.z = e.gfxAngleZ -- make u spinn when divingg
@@ -173,7 +173,7 @@ local function update_honi(m)
         if e.diveTimer < 30 then
             m.vel.y = 0
         else
-            set_mario_action(m, ACT_FREEFALL, 0)
+            return set_mario_action(m, ACT_DIVE, 0)
         end
         if m.input & INPUT_Z_PRESSED ~= 0 then
             set_mario_action(m, ACT_GROUND_POUND, 0)
@@ -181,6 +181,10 @@ local function update_honi(m)
         end
     else
         e.diveTimer = 0
+    end
+    
+    if m.action == ACT_DIVE and m.input & INPUT_Z_PRESSED ~= 0 and m.prevAction == ACT_DIVE then 
+        set_mario_action(m, ACT_GROUND_POUND, 0)
     end
 
     if m.action == ACT_DOUBLE_JUMP and m.prevAction == ACT_GROUND_POUND then
