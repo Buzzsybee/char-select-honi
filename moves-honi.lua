@@ -262,6 +262,14 @@ local function update_honi(m)
             m.forwardVel = 60
             m.vel.y = 40
         end
+        if m.input & INPUT_A_PRESSED ~= 0 then
+            m.faceAngle.y = m.intendedYaw
+            if mag > 0 then
+                m.forwardVel = 60 + (mag * 10)
+            end
+            m.vel.y = 50
+            set_mario_action(m, ACT_TRIPLE_JUMP, 0)
+        end
     end
 end
 
