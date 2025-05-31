@@ -228,8 +228,9 @@ local function update_honi(m)
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_LONG_JUMP, 0) -- can long jump from dive slidesssss
         end
+        --                                     vv speed  you can make that number larger
+        --m.forwardVel = m.forwardVel + 10 * math.max(0x800 - abs_angle_diff(m.faceAngle.y, m.intendedYaw) / 0x800, 0)
     end
-
     if m.action == ACT_GROUND_POUND and e.canDoubleJump then
         if m.input & INPUT_A_PRESSED ~= 0 then
             if mag > 0 then
