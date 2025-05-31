@@ -63,7 +63,7 @@ local function honi_twirl(m)
     --m.vel.x = m.forwardVel * sins(m.faceAngle.y)
     --m.vel.z = m.forwardVel * coss(m.faceAngle.y)
 
-    if m.input & INPUT_B_PRESSED ~= 0 and e.airDash then
+    if m.input & INPUT_B_PRESSED ~= 0 then
         m.vel.y = 20
         --m.forwardVel = 30
         m.faceAngle.y = m.intendedYaw
@@ -158,9 +158,10 @@ local function update_honi(m)
     if m.action & ACT_FLAG_AIR == 0 then
         e.canTwirl = true -- if in air, cant twirl from other actions
         e.canDoubleJump = true
+        e.airDash = true
     end
 
-    if m.action == ACT_DIVE and (m.prevAction == ACT_HONI_TWIRL or m.prevAction == ACT_GROUND_POUND_LAND or (m.prevAction == ACT_DOUBLE_JUMP and not e.canDoubleJump)) then
+    if m.action == ACT_DIVE and (m.prevAction == ACT_HONI_TWIRL or m.prevAction == ACT_GROUND_POUND_LAND or (m.prevAction == ACT_GROUND_POUND and not e.airDash) or (m.prevAction == ACT_DOUBLE_JUMP and not e.canDoubleJump)) then
         e.gfxAngleZ = e.gfxAngleZ + 0x1800
         m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x500, 0x500)
         set_mario_animation(m, CHAR_ANIM_GROUND_POUND)
@@ -170,10 +171,11 @@ local function update_honi(m)
         --m.vel.y = m.vel.y + 2
         e.diveTimer = e.diveTimer + 1
         m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
+
         if e.diveTimer < 30 then
             m.vel.y = 0
         else
-            return set_mario_action(m, ACT_DIVE, 0)
+            set_mario_action(m, ACT_DIVE, 0)
         end
         if m.input & INPUT_Z_PRESSED ~= 0 then
             set_mario_action(m, ACT_GROUND_POUND, 0)
@@ -231,8 +233,8 @@ local function update_honi(m)
         --                                     vv speed  you can make that number larger
         --m.forwardVel = m.forwardVel + 10 * math.max(0x800 - abs_angle_diff(m.faceAngle.y, m.intendedYaw) / 0x800, 0)
     end
-    if m.action == ACT_GROUND_POUND and e.canDoubleJump then
-        if m.input & INPUT_A_PRESSED ~= 0 then
+    if m.action == ACT_GROUND_POUND then
+        if m.input & INPUT_A_PRESSED ~= 0 and e.canDoubleJump then
             if mag > 0 then
                 m.forwardVel = 30 + (mag * 10)
                 m.vel.y = 10
@@ -242,6 +244,14 @@ local function update_honi(m)
             m.vel.y = 30
             m.faceAngle.y = m.intendedYaw      
             set_mario_action(m, ACT_DOUBLE_JUMP, 0)
+        end
+
+        if m.input & INPUT_B_PRESSED ~= 0 and e.airDash then
+            m.faceAngle.y = m.intendedYaw
+            set_mario_action(m, ACT_DIVE, 0)
+            m.forwardVel = 60
+            m.vel.y = 40
+            e.airDash = false
         end
     end
 
