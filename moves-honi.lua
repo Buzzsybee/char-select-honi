@@ -26,6 +26,7 @@ function reset_honi_states(index)
         airDash = true,
         canDoubleJump = true,
         diveTimer = 0,
+        slideTimer = 0,
 
         gfxAngleX = 0,
         gfxAngleY = 0,
@@ -39,9 +40,6 @@ for i = 0, (MAX_PLAYERS - 1) do
 end
 
 ACT_HONI_TWIRL     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR) --DONE
-ACT_HONI_DRILL     = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING)
-ACT_HONI_AIR_DASH  = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR|ACT_FLAG_ATTACKING)
-ACT_HONI_SKATE     = allocate_mario_action(ACT_GROUP_MOVING|ACT_FLAG_ATTACKING)
 ACT_HONI_FLING     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_GROUP_STATIONARY)
 
 --- @param m MarioState
@@ -84,45 +82,7 @@ local function honi_twirl(m)
 
     m.actionTimer = m.actionTimer + 1
 end
-
-local function honi_drill(m)
-    local e = gExtrasStates[m.playerIndex] 
-    local mag = (m.controller.stickMag) / 64
-
-    set_mario_animation(m, CHAR_ANIM_TWIRLING)
-    m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
-    if m.actionTimer == 0 then
-        m.faceAngle.y = m.intendedYaw
-    end
-
-    if mag > 0 then -- this is supposed to check if ur holding the stick, but i dont knoo
-        if m.forwardVel < 30 then m.forwardVel = 30 end
-        m.forwardVel = m.forwardVel + (mag * 5)
-        if m.forwardVel > 50 then m.forwardVel = 50 end
-    elseif mag == 0 then -- and this is if ur not holding stickk
-        m.forwardVel = m.forwardVel - 2
-    end
-
-    -- Saves rotation to Extra States
-    e.gfxAngleY = e.gfxAngleY + 0x2800
-    -- Applies rotation
-    m.marioObj.header.gfx.angle.y = e.gfxAngleY
-
-    m.faceAngle.y = approach_s32(convert_s16(m.faceAngle.y), m.intendedYaw, 0x400)
-    --m.vel.x = m.forwardVel * sins(m.faceAngle.y)
-    --m.vel.z = m.forwardVel * coss(m.faceAngle.y)
-
-    local ground = perform_ground_step(m)
-
-    if ground == GROUND_STEP_LEFT_GROUND then
-        set_mario_action(m, ACT_FREE_FALL, 0)
-    end
-
-    m.actionTimer = m.actionTimer + 1
-end
-
 hook_mario_action(ACT_HONI_TWIRL,{every_frame = honi_twirl})
-hook_mario_action(ACT_HONI_DRILL,{every_frame = honi_drill})
 
 local function honi_on_set_action(m)
     --i also dont know how this works, placeholder fot the moment
@@ -224,14 +184,21 @@ local function update_honi(m)
     end
 
     if m.action == ACT_DIVE_SLIDE then
+        m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x800, 0x800);
+        e.slideTimer = e.slideTimer + 1
+        m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
+        if mag > 0 and e.slideTimer < 40 then
+            mario_set_forward_vel(m, 60) 
+        else return set_mario_action(m, ACT_HONI_TWIRL, 0)
+        end
+
         if m.input & INPUT_Z_PRESSED ~= 0 then
             m.vel.y = 20
             m.forwardVel = 40
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_LONG_JUMP, 0) -- can long jump from dive slidesssss
         end
-        --                                     vv speed  you can make that number larger
-        --m.forwardVel = m.forwardVel + 10 * math.max(0x800 - abs_angle_diff(m.faceAngle.y, m.intendedYaw) / 0x800, 0)
+    else e.slideTimer = 0
     end
     if m.action == ACT_GROUND_POUND then
         if m.input & INPUT_A_PRESSED ~= 0 and e.canDoubleJump then
