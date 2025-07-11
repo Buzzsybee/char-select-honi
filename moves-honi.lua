@@ -24,6 +24,7 @@ function reset_honi_states(index)
         canTwirl = true,
         twirlFromDive = true,
         airDash = true,
+        airDashCount = 3,
         canDoubleJump = true,
         diveTimer = 0,
         slideTimer = 0,
@@ -39,8 +40,8 @@ for i = 0, (MAX_PLAYERS - 1) do
     reset_honi_states(i)
 end
 
-ACT_HONI_TWIRL     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR) --DONE
-ACT_HONI_FLING     = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_GROUP_STATIONARY)
+ACT_HONI_TWIRL = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR) --DONE
+ACT_HONI_GROUND_POUND = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_ATTACKING|ACT_FLAG_MOVING|ACT_FLAG_AIR)
 
 --- @param m MarioState
 local function honi_twirl(m)
@@ -70,7 +71,7 @@ local function honi_twirl(m)
 
     if m.input & INPUT_Z_PRESSED ~= 0 then
         m.faceAngle.y = m.intendedYaw
-        set_mario_action(m, ACT_GROUND_POUND, 0)
+        set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
     end
 
     e.canTwirl = false -- if already twirling, cant twirl again :3
@@ -84,10 +85,53 @@ local function honi_twirl(m)
 end
 hook_mario_action(ACT_HONI_TWIRL,{every_frame = honi_twirl})
 
+local function act_honi_ground_pound(m)
+    local e = gExtrasStates[m.playerIndex]
+    local mag = (m.controller.stickMag) / 64
+
+    common_air_action_step(m, ACT_GROUND_POUND_LAND, MARIO_ANIM_BEING_GRABBED, AIR_STEP_CHECK_LEDGE_GRAB)
+    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x1000, 0x1000)
+    if e.actionTick == 0 then
+        m.vel.y = 30
+        play_character_sound(m, CHAR_SOUND_WHOA)
+        m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
+    end
+
+    if mag > 0 then
+        mario_set_forward_vel(m, m.forwardVel + (mag * 2))
+        if m.forwardVel > 60 then
+            m.forwardVel = 60
+        end
+    else m.forwardVel = approach_f32(m.forwardVel, 0, 10, 10)
+    end
+
+    -- Saves rotation to Extra States
+    e.gfxAngleX = e.gfxAngleX + 0x1500
+    -- Applies rotation
+    m.marioObj.header.gfx.angle.x = e.gfxAngleX
+
+      e.gfxAngleY = e.gfxAngleY + 0x800
+    -- Applies rotation
+    m.marioObj.header.gfx.angle.y = e.gfxAngleY
+
+    m.actionTimer = m.actionTimer + 1
+    m.peakHeight = m.pos.y
+end
+hook_mario_action(ACT_HONI_GROUND_POUND, {every_frame = act_honi_ground_pound})
+
 local function honi_on_set_action(m)
     --i also dont know how this works, placeholder fot the moment
     -- Hook runs when mario's action is changed, so you can run things on the first frame of a base action
     local e = gExtrasStates[m.playerIndex]
+    if m.action == ACT_SLIDE_KICK then
+        mario_set_forward_vel(m, 200)
+        m.pos.y = m.pos.y + 70
+        set_mario_action(m, ACT_DIVE, 0)
+    end
+
+    if m.action == ACT_GROUND_POUND then 
+        set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
+    end -- make sure it is the honi ground pound
 end
 
 local canTwirlFromAct = {
@@ -119,9 +163,11 @@ local function update_honi(m)
         e.canTwirl = true -- if in air, cant twirl from other actions
         e.canDoubleJump = true
         e.airDash = true
+        e.airDashCount = 3
     end
 
-    if m.action == ACT_DIVE and (m.prevAction == ACT_HONI_TWIRL or m.prevAction == ACT_GROUND_POUND_LAND or (m.prevAction == ACT_GROUND_POUND and not e.airDash) or (m.prevAction == ACT_DOUBLE_JUMP and not e.canDoubleJump)) then
+    -- Special dive
+    if m.action == ACT_DIVE and (m.prevAction == ACT_HONI_TWIRL or m.prevAction == ACT_GROUND_POUND_LAND or (m.prevAction == ACT_HONI_GROUND_POUND and not e.airDash) or (m.prevAction == ACT_DOUBLE_JUMP and not e.canDoubleJump) or (m.prevAction == ACT_SLIDE_KICK)) then
         e.gfxAngleZ = e.gfxAngleZ + 0x1800
         m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x500, 0x500)
         set_mario_animation(m, CHAR_ANIM_GROUND_POUND)
@@ -138,24 +184,28 @@ local function update_honi(m)
             set_mario_action(m, ACT_DIVE, 0)
         end
         if m.input & INPUT_Z_PRESSED ~= 0 then
-            set_mario_action(m, ACT_GROUND_POUND, 0)
+            set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
             m.marioObj.header.gfx.angle.z = 0
         end
     else
         e.diveTimer = 0
     end
-    
-    if m.action == ACT_DIVE and m.input & INPUT_Z_PRESSED ~= 0 and m.prevAction == ACT_DIVE then 
-        set_mario_action(m, ACT_GROUND_POUND, 0)
+
+    if m.action == ACT_DIVE and m.input & INPUT_Z_PRESSED ~= 0 then
+        set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
     end
 
-    if m.action == ACT_DOUBLE_JUMP and m.prevAction == ACT_GROUND_POUND then
+    if m.action == ACT_DOUBLE_JUMP and m.prevAction == ACT_HONI_GROUND_POUND then
         e.gfxAngleY = e.gfxAngleY + 0x2800
         m.marioObj.header.gfx.angle.y = e.gfxAngleY
         m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
     end
 
-    if m.action == ACT_WALL_KICK_AIR then e.canTwirl = true end -- can twirl after a wallkick, either having twirled already or not.
+    if m.action == ACT_WALL_KICK_AIR then 
+        e.canTwirl = true 
+        e.airDash = true
+    end
+    -- can twirl after a wallkick, either having twirled already or not.
     --djui_chat_message_create(tostring(e.canTwirl))
     --djui_chat_message_create(tostring(e.actionTick))
     if m.input & INPUT_A_PRESSED ~= 0 and e.canTwirl and canTwirlFromAct[m.action] and e.actionTick > 3 then
@@ -168,6 +218,10 @@ local function update_honi(m)
             set_mario_action(m, ACT_DIVE, 0)
             m.vel.y = 20
             --m.forwardVel = 30
+        end
+
+        if m.input & INPUT_Z_PRESSED ~= 0 then
+            set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
         end
     end
 
@@ -200,7 +254,18 @@ local function update_honi(m)
         end
     else e.slideTimer = 0
     end
-    if m.action == ACT_GROUND_POUND then
+
+    --special wallkick, easier to do(10 frames), can be done from heavy knockback and not just soft bonk, has only 3 uses
+    if m.action == ACT_BACKWARD_AIR_KB then
+        if e.actionTick < 10 and e.airDashCount > 0 and m.input & INPUT_A_PRESSED ~= 0 then
+            e.airDashCount = e.airDashCount - 1
+            m.faceAngle.y = m.faceAngle.y - 0x8000
+            m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
+            set_mario_action(m, ACT_WALL_KICK_AIR, 0)
+        end
+    end
+
+    if m.action == ACT_HONI_GROUND_POUND then
         if m.input & INPUT_A_PRESSED ~= 0 and e.canDoubleJump then
             if mag > 0 then
                 m.forwardVel = 30 + (mag * 10)
@@ -223,6 +288,11 @@ local function update_honi(m)
     end
 
     if m.action == ACT_GROUND_POUND_LAND then
+        if e.actionTick == 0 then
+            m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
+            play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
+            play_mario_heavy_landing_sound(m, SOUND_ACTION_TERRAIN_HEAVY_LANDING)
+        end
         if m.input & INPUT_B_PRESSED ~= 0 then
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_DIVE, 0)
