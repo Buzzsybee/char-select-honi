@@ -208,6 +208,10 @@ local function update_honi(m)
         m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
     end
 
+    if (m.action == ACT_TRIPLE_JUMP and m.prevAction == ACT_GROUND_POUND_LAND) or m.action == ACT_WALL_KICK_AIR then
+        m.particleFlags = m.particleFlags | PARTICLE_DUST
+    end
+
     if m.action == ACT_WALL_KICK_AIR then 
         e.canTwirl = true 
         e.airDash = true
@@ -220,6 +224,17 @@ local function update_honi(m)
     end
 
     if m.action == ACT_LONG_JUMP then
+        if m.prevAction == ACT_DIVE_SLIDE then
+            if mag > 0 then 
+                mario_set_forward_vel(m, m.forwardVel + (mag * 5)) 
+                if m.forwardVel > 90 then 
+                    m.forwardVel = 90
+                end
+            else m.forwardVel = approach_f32(m.forwardVel, 0, 10, 10)
+            end
+            m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x1000, 0x1000)
+        end
+
         if m.input & INPUT_B_PRESSED ~= 0 then
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_DIVE, 0)
@@ -249,7 +264,7 @@ local function update_honi(m)
         e.slideTimer = e.slideTimer + 1
         m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
         if mag > 0 and e.slideTimer < 40 then
-            mario_set_forward_vel(m, 60) 
+            mario_set_forward_vel(m, 95)
         else return set_mario_action(m, ACT_HONI_TWIRL, 0)
         end
 
@@ -264,6 +279,14 @@ local function update_honi(m)
 
     --special wallkick, easier to do(10 frames), can be done from heavy knockback and not just soft bonk, has only 3 uses
     if m.action == ACT_BACKWARD_AIR_KB then
+        if e.actionTick == 0 then
+            m.invincTimer = 2
+            local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
+                explosionObj.oIntangibleTimer = -1
+            end)
+            play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
+            play_mario_heavy_landing_sound(m, SOUND_GENERAL_EXPLOSION7) 
+        end
         if e.actionTick < 10 and e.airDashCount > 0 and m.input & INPUT_A_PRESSED ~= 0 then
             e.airDashCount = e.airDashCount - 1
             m.faceAngle.y = m.faceAngle.y - 0x8000
@@ -296,7 +319,8 @@ local function update_honi(m)
             e.hasReleasedZ = true
         end
         if e.actionTick > 1 and (m.input & INPUT_Z_DOWN ~= 0) and e.hasReleasedZ then
-            if m.input & INPUT_A_PRESSED ~= 0 then return end
+            play_mario_sound(m, SOUND_ACTION_TWIRL, SOUND_ACTION_TWIRL)
+            if m.input & INPUT_A_PRESSED ~= 0 or m.input & INPUT_B_PRESSED ~= 0 then return end
             m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
             m.vel.y = -90
             mario_set_forward_vel(m, 0)
@@ -309,8 +333,8 @@ local function update_honi(m)
             local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
                 explosionObj.oIntangibleTimer = -1
             end)
-            play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
-            play_mario_heavy_landing_sound(m, SOUND_GENERAL_BOWSER_BOMB_EXPLOSION)
+            play_mario_sound(m, CHAR_SOUND_TWIRL_BOUNCE, CHAR_SOUND_TWIRL_BOUNCE)
+            play_mario_heavy_landing_sound(m, SOUND_GENERAL_EXPLOSION7)
         end
         if m.input & INPUT_B_PRESSED ~= 0 then
             m.faceAngle.y = m.intendedYaw
