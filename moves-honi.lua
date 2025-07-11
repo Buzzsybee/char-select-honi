@@ -28,6 +28,7 @@ function reset_honi_states(index)
         canDoubleJump = true,
         diveTimer = 0,
         slideTimer = 0,
+        hasReleasedZ = false,
 
         gfxAngleX = 0,
         gfxAngleY = 0,
@@ -92,6 +93,8 @@ local function act_honi_ground_pound(m)
     common_air_action_step(m, ACT_GROUND_POUND_LAND, MARIO_ANIM_BEING_GRABBED, AIR_STEP_CHECK_LEDGE_GRAB)
     m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x1000, 0x1000)
     if e.actionTick == 0 then
+        m.faceAngle.y = m.intendedYaw
+
         m.vel.y = 30
         play_character_sound(m, CHAR_SOUND_WHOA)
         m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
@@ -132,6 +135,10 @@ local function honi_on_set_action(m)
     if m.action == ACT_GROUND_POUND then 
         set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
     end -- make sure it is the honi ground pound
+
+    if m.action == ACT_HONI_GROUND_POUND then
+        e.hasReleasedZ = false
+    end
 end
 
 local canTwirlFromAct = {
@@ -149,7 +156,7 @@ local canTwirlFromAct = {
 local function update_honi(m)
     local e = gExtrasStates[m.playerIndex]
     local mag = (m.controller.stickMag) / 64
-
+    
     m.peakHeight = m.pos.y
 
     -- Global Action Timer 
@@ -285,13 +292,25 @@ local function update_honi(m)
             m.vel.y = 40
             e.airDash = false
         end
+        if m.input & INPUT_Z_DOWN == 0 then
+            e.hasReleasedZ = true
+        end
+        if e.actionTick > 1 and (m.input & INPUT_Z_DOWN ~= 0) and e.hasReleasedZ then
+            if m.input & INPUT_A_PRESSED ~= 0 then return end
+            m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
+            m.vel.y = -90
+            mario_set_forward_vel(m, 0)
+        end
     end
 
     if m.action == ACT_GROUND_POUND_LAND then
         if e.actionTick == 0 then
-            m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
+            m.invincTimer = 2
+            local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
+                explosionObj.oIntangibleTimer = -1
+            end)
             play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
-            play_mario_heavy_landing_sound(m, SOUND_ACTION_TERRAIN_HEAVY_LANDING)
+            play_mario_heavy_landing_sound(m, SOUND_GENERAL_BOWSER_BOMB_EXPLOSION)
         end
         if m.input & INPUT_B_PRESSED ~= 0 then
             m.faceAngle.y = m.intendedYaw
@@ -306,6 +325,10 @@ local function update_honi(m)
             end
             m.vel.y = 50
             set_mario_action(m, ACT_TRIPLE_JUMP, 0)
+        end
+
+        if m.input & INPUT_Z_PRESSED ~= 0 then
+            set_mario_action(m, ACT_DIVE_SLIDE, 0)
         end
     end
 end
