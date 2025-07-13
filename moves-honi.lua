@@ -141,6 +141,11 @@ local function honi_on_set_action(m)
     end
 end
 
+local function allow_interact(m, obj, interactType)
+    if (obj_has_behavior_id(obj, id_bhvExplosion) ~= 0 and obj.oHealth == 64) then return false end
+end
+hook_event(HOOK_ALLOW_INTERACT, allow_interact)
+
 local canTwirlFromAct = {
     [ACT_DIVE] = true,
     [ACT_JUMP] = true,
@@ -330,8 +335,8 @@ local function update_honi(m)
     if m.action == ACT_GROUND_POUND_LAND then
         if e.actionTick == 0 then
             m.invincTimer = 2
-            local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
-                explosionObj.oIntangibleTimer = -1
+            local explosionObj = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
+                explosionObj.oHealth = 64
             end)
             play_mario_sound(m, CHAR_SOUND_TWIRL_BOUNCE, CHAR_SOUND_TWIRL_BOUNCE)
             play_mario_heavy_landing_sound(m, SOUND_GENERAL_EXPLOSION7)
@@ -353,6 +358,13 @@ local function update_honi(m)
 
         if m.input & INPUT_Z_PRESSED ~= 0 then
             set_mario_action(m, ACT_DIVE_SLIDE, 0)
+        end
+    end
+
+    if (m.action == ACT_FLAG_BUTT_OR_STOMACH_SLIDE) then
+        e.actionTick = e.actionTick + 1
+        if e.actionTick == 1 then
+            m.invincTimer = 2
         end
     end
 end
