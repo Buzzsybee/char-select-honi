@@ -33,3 +33,5 @@ A brief moveset guide:
 Special thanks to: Jer(special dive anims and special dive action), Sonkie (Life icon) Squishy(Some code explanations and code tweaks :3c) Baconator(early days teaching and answering questions:D)
 
 Enjoy and give feedback! :3
+
+![Screenshot_2025-07-11-18-15-45-62_a7bd168ea019edb839801ab917d33c19](https://github.com/user-attachments/assets/45d143e9-2e2d-4f72-987a-ca13fb71add4)
