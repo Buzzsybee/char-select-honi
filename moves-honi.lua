@@ -22,9 +22,11 @@ function reset_honi_states(index)
         prevFrameAction = 0,
         chargedFling = 0,
         canTwirl = true,
+        isSpecialDive = false,
         twirlFromDive = true,
         airDash = true,
         airDashCount = 3,
+        boomCount = 3,
         canDoubleJump = true,
         diveTimer = 0,
         slideTimer = 0,
@@ -142,7 +144,12 @@ local function honi_on_set_action(m)
 end
 
 local function allow_interact(m, obj, interactType)
-    if (obj_has_behavior_id(obj, id_bhvExplosion) ~= 0 and obj.oHealth == 64) then return false end
+    -- Only prevent interaction for the local player who spawned the explosion
+    if (obj_has_behavior_id(obj, id_bhvExplosion) ~= 0 and obj.oHealth == 64) then
+        if m.playerIndex == 0 then -- local player is always index 0
+            return false
+        end
+    end
 end
 hook_event(HOOK_ALLOW_INTERACT, allow_interact)
 
@@ -176,10 +183,12 @@ local function update_honi(m)
         e.canDoubleJump = true
         e.airDash = true
         e.airDashCount = 3
+        e.boomCount = 3
     end
 
     -- Special dive
     if m.action == ACT_DIVE and (m.prevAction == ACT_HONI_TWIRL or m.prevAction == ACT_GROUND_POUND_LAND or (m.prevAction == ACT_HONI_GROUND_POUND and not e.airDash) or (m.prevAction == ACT_DOUBLE_JUMP and not e.canDoubleJump) or (m.prevAction == ACT_SLIDE_KICK)) then
+        e.isSpecialDive = true
         e.gfxAngleZ = e.gfxAngleZ + 0x1800
         m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x500, 0x500)
         set_mario_animation(m, CHAR_ANIM_GROUND_POUND)
@@ -201,10 +210,31 @@ local function update_honi(m)
         end
     else
         e.diveTimer = 0
+        e.isSpecialDive = false
     end
 
-    if m.action == ACT_DIVE and m.input & INPUT_Z_PRESSED ~= 0 then
-        set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
+    if m.action == ACT_DIVE then
+        if m.input & INPUT_Z_PRESSED ~= 0 then
+            set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
+        end
+
+        if m.input & INPUT_B_PRESSED ~= 0 and e.actionTick > 3 and e.boomCount > 0 then
+            m.faceAngle.y = m.intendedYaw
+            local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
+                explosionObj.oHealth = 64
+            end)
+            play_character_sound(m, CHAR_SOUND_HOOHOO)
+            mario_set_forward_vel(m, m.forwardVel + 30)
+            m.vel.y = 30
+            e.boomCount = e.boomCount - 1
+            if e.isSpecialDive then
+                e.diveTimer = 0
+                m.vel.y = 0
+            end
+        end
+        if m.forwardVel > 200 then
+            m.forwardVel = 200
+        end
     end
 
     if m.action == ACT_DOUBLE_JUMP and m.prevAction == ACT_HONI_GROUND_POUND then
@@ -220,6 +250,7 @@ local function update_honi(m)
     if m.action == ACT_WALL_KICK_AIR then 
         e.canTwirl = true 
         e.airDash = true
+        e.boomCount = 3
     end
     -- can twirl after a wallkick, either having twirled already or not.
     --djui_chat_message_create(tostring(e.canTwirl))
@@ -287,16 +318,18 @@ local function update_honi(m)
         if e.actionTick == 0 then
             m.invincTimer = 2
             local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
-                explosionObj.oIntangibleTimer = -1
+                explosionObj.oHealth = 64
             end)
             play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
             play_mario_heavy_landing_sound(m, SOUND_GENERAL_EXPLOSION7) 
         end
-        if e.actionTick < 10 and e.airDashCount > 0 and m.input & INPUT_A_PRESSED ~= 0 then
-            e.airDashCount = e.airDashCount - 1
-            m.faceAngle.y = m.faceAngle.y - 0x8000
-            m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
-            set_mario_action(m, ACT_WALL_KICK_AIR, 0)
+        if e.actionTick < 10 then
+            if e.airDashCount > 0 and m.input & INPUT_A_PRESSED ~= 0 then
+                e.airDashCount = e.airDashCount - 1
+                m.faceAngle.y = m.faceAngle.y - 0x8000
+                m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
+                set_mario_action(m, ACT_WALL_KICK_AIR, 0)
+            end
         end
     end
 
