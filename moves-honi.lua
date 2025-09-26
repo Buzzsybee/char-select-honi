@@ -225,6 +225,7 @@ local function update_honi(m)
             end)
             play_character_sound(m, CHAR_SOUND_HOOHOO)
             mario_set_forward_vel(m, m.forwardVel + 30)
+            e.gfxAngleX = 0x2800
             m.vel.y = 30
             e.boomCount = e.boomCount - 1
             if e.isSpecialDive then
@@ -323,6 +324,7 @@ local function update_honi(m)
             play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
             play_mario_heavy_landing_sound(m, SOUND_GENERAL_EXPLOSION7) 
         end
+
         if e.actionTick < 10 then
             if e.airDashCount > 0 and m.input & INPUT_A_PRESSED ~= 0 then
                 e.airDashCount = e.airDashCount - 1
@@ -330,6 +332,9 @@ local function update_honi(m)
                 m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
                 set_mario_action(m, ACT_WALL_KICK_AIR, 0)
             end
+        end
+        if m.vel.z > 10 then
+            m.vel.z = 10
         end
     end
 
