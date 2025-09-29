@@ -12,11 +12,54 @@ local function convert_s16(num)
     return num
 end
 
-function get_current_speed(m)
-    return math.sqrt(m.vel.x * m.vel.x + m.vel.z * m.vel.z)
+local function s16(x)
+    x = (math.floor(x) & 0xFFFF)
+    if x >= 32768 then return x - 65536 end
+    return x
 end
 
---Extra player variables, similar to gMarioStates
+function get_current_speed(m)
+    return math.sqrt((m.vel.x * m.vel.x) + (m.vel.z * m.vel.z))
+end
+
+local function reset_rotation(m, nextAct, actionArg)
+    m.marioBodyState.allowPartRotation = 0
+end
+hook_event(HOOK_BEFORE_SET_MARIO_ACTION, reset_rotation)
+
+local function reset_pitch(m)
+    if m.action == ACT_HONI_WALK then
+        m.marioObj.oMarioWalkingPitch = 0
+    end
+end
+hook_event(HOOK_ON_SET_MARIO_ACTION, reset_pitch)
+
+local function update_honi_walking_speed(m)
+    local maxTargetSpeed = 0.0;
+    local targetSpeed = 0.0;
+
+    if (m.floor ~= nil and m.floor.type == SURFACE_SLOW) then
+        maxTargetSpeed = e.lastSpeed;
+    else
+        maxTargetSpeed = e.lastSpeed;
+    end
+
+    if (m.intendedMag < maxTargetSpeed) then
+        targetSpeed = m.intendedMag
+    else
+        targetSpeed = maxTargetSpeed
+    end
+
+    if (m.forwardVel <= 0.0) then
+        m.forwardVel = m.forwardVel + 2.1;
+    elseif (m.forwardVel <= targetSpeed) then
+        m.forwardVel = m.forwardVel + 2.1;
+    end
+
+    m.faceAngle.y = m.intendedYaw - approach_s32(s16(m.intendedYaw - m.faceAngle.y), 0, 0x800, 0x800);
+    apply_slope_accel(m);
+end
+
 gExtrasStates = {}
 function reset_honi_states(index)
     if index == nil then index = 0 end
@@ -24,7 +67,6 @@ function reset_honi_states(index)
         index = network_global_index_from_local(0),
         actionTick = 0,
         prevFrameAction = 0,
-        chargedFling = 0,
         canTwirl = true,
         isSpecialDive = false,
         twirlFromDive = true,
@@ -34,6 +76,7 @@ function reset_honi_states(index)
         canDoubleJump = true,
         diveTimer = 0,
         slideTimer = 0,
+        runTimer = 0,
         hasReleasedZ = false,
 
         gfxAngleX = 0,
@@ -42,6 +85,8 @@ function reset_honi_states(index)
 
         lastSpeed = 0,
         diveSlideSpeed = 0,
+        slideJumpSpeed = 0,
+        tripleJumpSpeed = 0,
     }
 end
 
@@ -51,30 +96,83 @@ for i = 0, (MAX_PLAYERS - 1) do
 end
 
 ACT_HONI_TWIRL = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR) --DONE
-ACT_HONI_GROUND_POUND = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_ATTACKING|ACT_FLAG_MOVING|ACT_FLAG_AIR)
+ACT_HONI_GROUND_POUND = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_ATTACKING|ACT_FLAG_MOVING|ACT_FLAG_AIR) --DONE
+ACT_HONI_WALK = allocate_mario_action(ACT_GROUP_MOVING | ACT_FLAG_ALLOW_FIRST_PERSON | ACT_FLAG_MOVING | ACT_FLAG_CUSTOM_ACTION)
+
+function act_honi_walking(m)
+    local startPos = m.pos;
+    local startYaw = m.faceAngle.y;
+
+    mario_drop_held_object(m);
+
+    m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE;
+
+    if (m.input & INPUT_FIRST_PERSON ~= 0) then
+        return begin_braking_action(m);
+    end
+
+    if (m.input & INPUT_A_PRESSED ~= 0) then
+        return set_mario_action(m, ACT_TRIPLE_JUMP, 0);
+    end
+
+    if (check_ground_dive_or_punch(m) ~= 0) then
+        return 1;
+    end
+
+    if (m.input & INPUT_ZERO_MOVEMENT ~= 0) then
+        return begin_braking_action(m);
+    end
+    
+    if (analog_stick_held_back(m) ~= 0 and m.forwardVel >= 1.0) then
+        return set_mario_action(m, ACT_TURNING_AROUND, 0);
+    end
+
+    if (m.input & INPUT_Z_PRESSED ~= 0) then
+        return set_mario_action(m, ACT_DIVE_SLIDE, 0);
+    end
+
+    m.actionState = 0;
+
+    vec3f_copy(startPos, m.pos);
+    update_honi_walking_speed(m);
+    open_doors_check(m)
+
+    local stepResult = perform_ground_step(m)
+    if (stepResult == GROUND_STEP_LEFT_GROUND) then
+        set_mario_action(m, ACT_FREEFALL, 0);
+        set_character_animation(m, CHAR_ANIM_GENERAL_FALL);    
+    elseif (stepResult == GROUND_STEP_NONE) then
+        anim_and_audio_for_walk(m);
+        if ((m.intendedMag - m.forwardVel) > 16.0) then
+            set_mario_particle_flags(m, PARTICLE_DUST, false);
+        end
+    elseif (stepResult == GROUND_STEP_HIT_WALL) then
+        push_or_sidle_wall(m, startPos);
+        m.actionTimer = 0;
+    end
+
+    tilt_body_walking(m, startYaw);
+    m.marioBodyState.allowPartRotation = 1
+    return 0;
+end
+hook_mario_action(ACT_HONI_WALK, { every_frame = act_honi_walking, gravity = nil } )
 
 --- @param m MarioState
 local function honi_twirl(m)
     local e = gExtrasStates[m.playerIndex]
-    --local mag = (m.controller.stickMag) / 64
-
     if m.actionTimer == 0 then
-        m.vel.y = 20
+        mario_set_forward_vel(m, math.max(30, e.lastSpeed))
+        m.vel.y = 30
         m.faceAngle.y = m.intendedYaw
-        --m.forwardVel = 10
         play_character_sound(m, CHAR_SOUND_HOOHOO)
         m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
     end
     
     common_air_action_step(m, ACT_FREEFALL_LAND, CHAR_ANIM_TWIRL, AIR_STEP_NONE)
 
-    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x2800, 0x2800);
-    --m.vel.x = m.forwardVel * sins(m.faceAngle.y)
-    --m.vel.z = m.forwardVel * coss(m.faceAngle.y)
+    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x2800, 0x2800)
 
     if m.input & INPUT_B_PRESSED ~= 0 then
-        m.vel.y = 20
-        --m.forwardVel = 30
         m.faceAngle.y = m.intendedYaw
         set_mario_action(m, ACT_DIVE, 0)
     end
@@ -110,7 +208,7 @@ local function act_honi_ground_pound(m)
     end
 
     if mag > 0 then
-        mario_set_forward_vel(m, m.forwardVel)
+        mario_set_forward_vel(m, math.max(e.lastSpeed, 32))
     else m.forwardVel = approach_f32(m.forwardVel, 0, 10, 10)
     end
 
@@ -119,8 +217,8 @@ local function act_honi_ground_pound(m)
     -- Applies rotation
     m.marioObj.header.gfx.angle.x = e.gfxAngleX
 
-      e.gfxAngleY = e.gfxAngleY + 0x800
-    -- Applies rotation
+    e.gfxAngleY = e.gfxAngleY + 0x800
+
     m.marioObj.header.gfx.angle.y = e.gfxAngleY
 
     m.actionTimer = m.actionTimer + 1
@@ -150,13 +248,21 @@ local function honi_on_set_action(m)
             mario_set_forward_vel(m, e.lastSpeed)
         end
     end
-    
+end
+
+local function before_honi_update(m)
+    e = gExtrasStates[m.playerIndex]
+    e.lastSpeed = get_current_speed(m)
+
+    if (e.lastSpeed > 70 and m.action & ACT_FLAG_AIR == 0) and (m.action ~= ACT_DIVE_SLIDE and m.action ~= ACT_GROUND_POUND_LAND) then
+        set_mario_action(m, ACT_HONI_WALK, 0)
+    end
 end
 
 local function allow_interact(m, obj, interactType)
     -- Only prevent interaction for the local player who spawned the explosion
     if (obj_has_behavior_id(obj, id_bhvExplosion) ~= 0 and obj.oHealth == 64) then
-        if m.playerIndex == 0 then -- local player is always index 0
+        if m.playerIndex == 0 then
             return false
         end
     end
@@ -180,7 +286,6 @@ local function update_honi(m)
     local mag = (m.controller.stickMag) / 64
     
     m.peakHeight = m.pos.y
-    e.lastSpeed = math.sqrt(m.vel.x * m.vel.x + m.vel.z * m.vel.z)
 
     -- Global Action Timer 
     e.actionTick = e.actionTick + 1
@@ -190,7 +295,7 @@ local function update_honi(m)
     end
 
     if m.action & ACT_FLAG_AIR == 0 then
-        e.canTwirl = true -- if in air, cant twirl from other actions
+        e.canTwirl = true
         e.canDoubleJump = true
         e.airDash = true
         e.airDashCount = 3
@@ -206,7 +311,6 @@ local function update_honi(m)
         smlua_anim_util_set_animation(m.marioObj, HONI_ANIM_DIVE_ROTATE)
         m.marioObj.header.gfx.angle.z = e.gfxAngleZ -- make u spinn when divingg
         m.marioObj.header.gfx.angle.x = 0
-        --m.vel.y = m.vel.y + 2
         e.diveTimer = e.diveTimer + 1
         m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
 
@@ -226,6 +330,8 @@ local function update_honi(m)
     end
 
     if m.action == ACT_DIVE then
+        m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x500, 0x500)
+
         if m.input & INPUT_Z_PRESSED ~= 0 then
             set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
         end
@@ -248,6 +354,10 @@ local function update_honi(m)
         if m.forwardVel > 200 then
             m.forwardVel = 200
         end
+
+        if not e.isSpecialDive and m.forwardVel > 40 then
+            m.particleFlags = m.particleFlags | PARTICLE_DUST
+        end
     end
 
     if m.action == ACT_DOUBLE_JUMP and m.prevAction == ACT_HONI_GROUND_POUND then
@@ -260,51 +370,60 @@ local function update_honi(m)
         m.particleFlags = m.particleFlags | PARTICLE_DUST
     end
 
+    if m.action == ACT_JUMP or m.action == ACT_DOUBLE_JUMP or m.action == ACT_TRIPLE_JUMP or m.action == ACT_STEEP_JUMP or m.action == ACT_WATER_JUMP then
+        m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x2800, 0x2800)
+    end
+
     if m.action == ACT_WALL_KICK_AIR then 
         e.canTwirl = true 
         e.airDash = true
         e.boomCount = 3
     end
     -- can twirl after a wallkick, either having twirled already or not.
-    --djui_chat_message_create(tostring(e.canTwirl))
-    --djui_chat_message_create(tostring(e.actionTick))
     if m.input & INPUT_A_PRESSED ~= 0 and e.canTwirl and canTwirlFromAct[m.action] and e.actionTick > 3 then
         set_mario_action(m, ACT_HONI_TWIRL, 0)
     end
 
     if m.action == ACT_LONG_JUMP then
-        if m.prevAction == ACT_DIVE_SLIDE then
-            if mag > 0 then 
-                mario_set_forward_vel(m, m.forwardVel + (mag * 5)) 
-                if m.forwardVel > 90 then 
-                    m.forwardVel = 90
-                end
-            else m.forwardVel = approach_f32(m.forwardVel, 0, 10, 10)
+        if e.actionTick == 0 then
+            if m.prevAction == ACT_DIVE_SLIDE then
+                local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
+                    explosionObj.oHealth = 64
+                end)
+                e.slideJumpSpeed = e.lastSpeed
             end
-            m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x1000, 0x1000)
         end
+
+        if m.prevAction == ACT_DIVE_SLIDE then
+            mario_set_forward_vel(m, e.slideJumpSpeed)
+        end
+        m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x800, 0x800)
 
         if m.input & INPUT_B_PRESSED ~= 0 then
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_DIVE, 0)
-            m.vel.y = 20
-            --m.forwardVel = 30
         end
 
         if m.input & INPUT_Z_PRESSED ~= 0 then
             set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
         end
+    else e.slideJumpSpeed = 0
+    
     end
 
-    if (m.action == ACT_FORWARD_ROLLOUT or m.action == ACT_BACKWARD_ROLLOUT) and e.actionTick > 5 then
-        if m.input & INPUT_B_PRESSED ~= 0 then
-            m.vel.y = 20
-            --m.forwardVel = 30
-            m.faceAngle.y = m.intendedYaw
-            set_mario_action(m, ACT_DIVE, 0) -- can dive from rollouts
-            
-        elseif m.input & INPUT_A_PRESSED ~= 0 then
-            set_mario_action(m, ACT_HONI_TWIRL, 0)
+    if (m.action == ACT_FORWARD_ROLLOUT or m.action == ACT_BACKWARD_ROLLOUT) then
+        m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x800, 0x800)
+        
+        if e.actionTick > 5 then
+            if m.input & INPUT_B_PRESSED ~= 0 then
+                m.vel.y = 20
+                --m.forwardVel = 30
+                m.faceAngle.y = m.intendedYaw
+                set_mario_action(m, ACT_DIVE, 0) -- can dive from rollouts
+                
+            elseif m.input & INPUT_A_PRESSED ~= 0 then
+                set_mario_action(m, ACT_HONI_TWIRL, 0)
+            end
         end
     end
 
@@ -330,7 +449,6 @@ local function update_honi(m)
 
         if m.input & INPUT_Z_PRESSED ~= 0 then
             m.vel.y = 20
-            m.forwardVel = 40
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_LONG_JUMP, 0) -- can long jump from dive slidesssss
         end
@@ -401,6 +519,8 @@ local function update_honi(m)
             end)
             play_mario_sound(m, CHAR_SOUND_TWIRL_BOUNCE, CHAR_SOUND_TWIRL_BOUNCE)
             play_mario_heavy_landing_sound(m, SOUND_GENERAL_EXPLOSION7)
+
+            e.tripleJumpSpeed = math.max(e.lastSpeed, 50)
         end
         if m.input & INPUT_B_PRESSED ~= 0 then
             m.faceAngle.y = m.intendedYaw
@@ -411,7 +531,7 @@ local function update_honi(m)
         if m.input & INPUT_A_PRESSED ~= 0 then
             m.faceAngle.y = m.intendedYaw
             if mag > 0 then
-                m.forwardVel = 60 + (mag * 10)
+                mario_set_forward_vel(m, e.tripleJumpSpeed)
             end
             m.vel.y = 50
             set_mario_action(m, ACT_TRIPLE_JUMP, 0)
@@ -429,7 +549,7 @@ local function update_honi(m)
         end
     end
 
-    if m.action == ACT_WATER_JUMP then
+    if m.action == ACT_WATER_JUMP or m.action == ACT_FREEFALL then
         if m.input & INPUT_B_PRESSED ~= 0 then
             m.faceAngle.y = m.intendedYaw
             set_mario_action(m, ACT_DIVE, 0)
@@ -445,14 +565,17 @@ local function update_honi(m)
             set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
         end
     end
-end
 
-local function honi_interact(m, interact)
-    local e = gExtrasStates[m.playerIndex]
-    --djui_chat_message_create("Interact: " .. tostring(interact))
-    if m.action == ACT_HONI_TWIRL and interact == INTERACT_BOUNCE_TOP then
-        e.canTwirl = true
-        m.vel.y = 100
+    if m.action == ACT_HONI_WALK then
+        e.runTimer = e.runTimer + 1
+        if e.runTimer > 40 then
+            m.forwardVel = approach_f32(m.forwardVel, 0, 2, 2)
+            if m.forwardVel <= 50 then
+                e.runTimer = 0
+                return set_mario_action(m, ACT_WALKING, 0)
+            end
+        end
+        else e.runTimer = 0
     end
 end
 
@@ -460,3 +583,4 @@ _G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_MARIO_UPDATE, update_honi)
 _G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_LEVEL_INIT, reset_honi_states)
 _G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_SET_MARIO_ACTION, honi_on_set_action)
 _G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_INTERACT, honi_interact)
+_G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_BEFORE_MARIO_UPDATE, before_honi_update)
