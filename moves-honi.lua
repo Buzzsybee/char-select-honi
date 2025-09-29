@@ -35,6 +35,7 @@ end
 hook_event(HOOK_ON_SET_MARIO_ACTION, reset_pitch)
 
 local function update_honi_walking_speed(m)
+    local e = gExtrasStates[m.playerIndex]
     local maxTargetSpeed = 0.0;
     local targetSpeed = 0.0;
 
@@ -45,7 +46,7 @@ local function update_honi_walking_speed(m)
     end
 
     if (m.intendedMag < maxTargetSpeed) then
-        targetSpeed = m.intendedMag
+        targetSpeed = m.intendedMag + 20
     else
         targetSpeed = maxTargetSpeed
     end
@@ -69,6 +70,8 @@ function reset_honi_states(index)
         prevFrameAction = 0,
         canTwirl = true,
         isSpecialDive = false,
+        boostGauge = 100,
+        isBoosting = false,
         twirlFromDive = true,
         airDash = true,
         airDashCount = 3,
@@ -125,10 +128,6 @@ function act_honi_walking(m)
     
     if (analog_stick_held_back(m) ~= 0 and m.forwardVel >= 1.0) then
         return set_mario_action(m, ACT_TURNING_AROUND, 0);
-    end
-
-    if (m.input & INPUT_Z_PRESSED ~= 0) then
-        return set_mario_action(m, ACT_DIVE_SLIDE, 0);
     end
 
     m.actionState = 0;
@@ -567,15 +566,38 @@ local function update_honi(m)
     end
 
     if m.action == ACT_HONI_WALK then
+        if m.input & INPUT_Z_DOWN ~= 0 and e.boostGauge > 0 then
+            e.isBoosting = true
+            m.forwardVel = m.forwardVel + 1
+            if m.forwardVel > 200 then
+                m.forwardVel = 200
+            end
+            e.boostGauge = e.boostGauge - 1
+            m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
+        else
+            e.isBoosting = false
+        if e.boostGauge < 100 then
+            e.boostGauge = e.boostGauge + 1
+        end
+    end
+
         e.runTimer = e.runTimer + 1
-        if e.runTimer > 40 then
-            m.forwardVel = approach_f32(m.forwardVel, 0, 2, 2)
+        if e.runTimer > 120 then
+            m.forwardVel = approach_f32(m.forwardVel, 50, 2, 2)
             if m.forwardVel <= 50 then
                 e.runTimer = 0
                 return set_mario_action(m, ACT_WALKING, 0)
             end
         end
         else e.runTimer = 0
+
+        if not e.isBoosting and e.boostGauge < 100 then
+        e.boostGauge = e.boostGauge + 1
+        end
+    end
+
+    if m.action == ACT_WALKING then
+        update_honi_walking_speed(m)
     end
 end
 
