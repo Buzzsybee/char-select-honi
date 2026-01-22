@@ -18,8 +18,31 @@ local function s16(x)
     return x
 end
 
+local function spawn_particle(m, particle)
+    m.particleFlags = m.particleFlags | particle
+end
+
+-- controller button variables for simplicity(wont update the rest, fuck ittt)
+local function init_buttons(m)
+    buttonP = m.controller.buttonPressed
+    buttonD = m.controller.buttonDown
+end
+
 function get_current_speed(m)
     return math.sqrt((m.vel.x * m.vel.x) + (m.vel.z * m.vel.z))
+end
+
+local function make_actionable_on_run(m)
+    init_buttons(m)
+
+    if buttonP & A_BUTTON ~= 0 then 
+        spawn_particle(m, PARTICLE_MIST_CIRCLE)
+        set_mario_action(m, ACT_LONG_JUMP, 0)
+    end
+
+    if buttonP & B_BUTTON ~= 0 then 
+        set_mario_action(m, ACT_SLIDE_JUMP, 0)
+    end
 end
 
 local function reset_rotation(m, nextAct, actionArg)
@@ -57,7 +80,7 @@ local function update_honi_walking_speed(m)
         m.forwardVel = m.forwardVel + 2.1;
     end
 
-    m.faceAngle.y = m.intendedYaw - approach_s32(s16(m.intendedYaw - m.faceAngle.y), 0, 0x800, 0x800);
+    m.faceAngle.y = m.intendedYaw - approach_s32(s16(m.intendedYaw - m.faceAngle.y), 0, 0x500, 0x500);
     apply_slope_accel(m);
 end
 
@@ -114,9 +137,9 @@ function act_honi_walking(m)
         return begin_braking_action(m);
     end
 
-    if (m.input & INPUT_A_PRESSED ~= 0) then
-        return set_mario_action(m, ACT_TRIPLE_JUMP, 0);
-    end
+    --if (m.input & INPUT_A_PRESSED ~= 0) then
+    --    return set_mario_action(m, ACT_TRIPLE_JUMP, 0);
+    --end
 
     if (check_ground_dive_or_punch(m) ~= 0) then
         return 1;
@@ -161,7 +184,7 @@ local function honi_twirl(m)
     local e = gExtrasStates[m.playerIndex]
     if m.actionTimer == 0 then
         mario_set_forward_vel(m, math.max(30, e.lastSpeed))
-        m.vel.y = 30
+        m.vel.y = 15
         m.faceAngle.y = m.intendedYaw
         play_character_sound(m, CHAR_SOUND_HOOHOO)
         m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
@@ -169,23 +192,19 @@ local function honi_twirl(m)
     
     common_air_action_step(m, ACT_FREEFALL_LAND, CHAR_ANIM_TWIRL, AIR_STEP_NONE)
 
-    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x2800, 0x2800)
+    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x800, 0x800)
 
     if m.input & INPUT_B_PRESSED ~= 0 then
-        m.faceAngle.y = m.intendedYaw
         set_mario_action(m, ACT_DIVE, 0)
     end
 
     if m.input & INPUT_Z_PRESSED ~= 0 then
-        m.faceAngle.y = m.intendedYaw
         set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
     end
 
-    e.canTwirl = false -- if already twirling, cant twirl again :3
+    e.canTwirl = false
 
-    -- Saves rotation to Extra States
     e.gfxAngleY = e.gfxAngleY + 0x2800
-    -- Applies rotation
     m.marioObj.header.gfx.angle.y = e.gfxAngleY
 
     m.actionTimer = m.actionTimer + 1
@@ -236,7 +255,7 @@ local function honi_on_set_action(m)
 
     if m.action == ACT_GROUND_POUND then 
         set_mario_action(m, ACT_HONI_GROUND_POUND, 0)
-    end -- make sure it is the honi ground pound
+    end
 
     if m.action == ACT_HONI_GROUND_POUND then
         e.hasReleasedZ = false
@@ -258,16 +277,6 @@ local function before_honi_update(m)
     end
 end
 
-local function allow_interact(m, obj, interactType)
-    -- Only prevent interaction for the local player who spawned the explosion
-    if (obj_has_behavior_id(obj, id_bhvExplosion) ~= 0 and obj.oHealth == 64) then
-        if m.playerIndex == 0 then
-            return false
-        end
-    end
-end
-hook_event(HOOK_ALLOW_INTERACT, allow_interact)
-
 local canTwirlFromAct = {
     [ACT_DIVE] = true,
     [ACT_JUMP] = true,
@@ -283,6 +292,7 @@ local canTwirlFromAct = {
 local function update_honi(m)
     local e = gExtrasStates[m.playerIndex]
     local mag = (m.controller.stickMag) / 64
+    init_buttons(m)
     
     m.peakHeight = m.pos.y
 
@@ -337,10 +347,9 @@ local function update_honi(m)
 
         if m.input & INPUT_B_PRESSED ~= 0 and e.actionTick > 3 and e.boomCount > 0 then
             m.faceAngle.y = m.intendedYaw
-            local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
-                explosionObj.oHealth = 64
-            end)
-            play_character_sound(m, CHAR_SOUND_HOOHOO)
+            
+            m.particleFlags = m.particleFlags | PARTICLE_VERTICAL_STAR
+            play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
             mario_set_forward_vel(m, m.forwardVel + 30)
             e.gfxAngleX = 0x2800
             m.vel.y = 30
@@ -386,9 +395,6 @@ local function update_honi(m)
     if m.action == ACT_LONG_JUMP then
         if e.actionTick == 0 then
             if m.prevAction == ACT_DIVE_SLIDE then
-                local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
-                    explosionObj.oHealth = 64
-                end)
                 e.slideJumpSpeed = e.lastSpeed
             end
         end
@@ -458,11 +464,9 @@ local function update_honi(m)
     if m.action == ACT_BACKWARD_AIR_KB then
         if e.actionTick == 0 then
             m.invincTimer = 2
-            local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
-                explosionObj.oHealth = 64
-            end)
+
             play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
-            play_mario_heavy_landing_sound(m, SOUND_GENERAL_EXPLOSION7) 
+            play_mario_heavy_landing_sound(m, SOUND_ACTION_METAL_LANDING)
         end
 
         if e.actionTick < 10 then
@@ -513,11 +517,9 @@ local function update_honi(m)
     if m.action == ACT_GROUND_POUND_LAND then
         if e.actionTick == 0 then
             m.invincTimer = 2
-            local explosionObj = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
-                explosionObj.oHealth = 64
-            end)
+            m.particleFlags = m.particleFlags | PARTICLE_HORIZONTAL_STAR
             play_mario_sound(m, CHAR_SOUND_TWIRL_BOUNCE, CHAR_SOUND_TWIRL_BOUNCE)
-            play_mario_heavy_landing_sound(m, SOUND_GENERAL_EXPLOSION7)
+            play_mario_heavy_landing_sound(m, SOUND_ACTION_METAL_LANDING)
 
             e.tripleJumpSpeed = math.max(e.lastSpeed, 50)
         end
@@ -574,10 +576,16 @@ local function update_honi(m)
             end
             e.boostGauge = e.boostGauge - 1
             m.particleFlags = m.particleFlags | PARTICLE_SPARKLES
+
+            --make_actionable_on_run(m)
         else
             e.isBoosting = false
         if e.boostGauge < 100 then
             e.boostGauge = e.boostGauge + 1
+        end
+
+        if buttonP & A_BUTTON ~= 0 then 
+            set_mario_action(m, ACT_TRIPLE_JUMP, 0)
         end
     end
 
