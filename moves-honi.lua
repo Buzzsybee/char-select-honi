@@ -216,10 +216,8 @@ local function act_honi_ground_pound(m)
     local mag = (m.controller.stickMag) / 64
 
     common_air_action_step(m, ACT_GROUND_POUND_LAND, MARIO_ANIM_BEING_GRABBED, AIR_STEP_CHECK_LEDGE_GRAB)
-    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x1000, 0x1000)
+    m.faceAngle.y = m.intendedYaw - approach_s32(convert_s16(m.intendedYaw - m.faceAngle.y), 0, 0x700, 0x700)
     if e.actionTick == 0 then
-        m.faceAngle.y = m.intendedYaw
-
         m.vel.y = 30
         play_character_sound(m, CHAR_SOUND_WHOA)
         m.particleFlags = m.particleFlags | PARTICLE_MIST_CIRCLE
