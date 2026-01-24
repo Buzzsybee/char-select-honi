@@ -104,6 +104,7 @@ function reset_honi_states(index)
         slideTimer = 0,
         runTimer = 0,
         hasReleasedZ = false,
+        explosionAllowed = true,
 
         gfxAngleX = 0,
         gfxAngleY = 0,
@@ -124,6 +125,44 @@ end
 ACT_HONI_TWIRL = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_AIR) --DONE
 ACT_HONI_GROUND_POUND = allocate_mario_action(ACT_GROUP_AIRBORNE|ACT_FLAG_ATTACKING|ACT_FLAG_MOVING|ACT_FLAG_AIR) --DONE
 ACT_HONI_WALK = allocate_mario_action(ACT_GROUP_MOVING | ACT_FLAG_ALLOW_FIRST_PERSON | ACT_FLAG_MOVING | ACT_FLAG_CUSTOM_ACTION)
+
+local function allow_explosion()
+    local e = gExtrasStates[0]
+    local explosionIs = "off" or "on"
+
+    if e.explosionAllowed then e.explosionAllowed = false
+    explosionIs = "off"
+    else e.explosionAllowed = true explosionIs = "on" end
+
+    djui_chat_message_create("explosion has been toggled :3c")
+    djui_chat_message_create("explosions are:")
+    djui_chat_message_create(explosionIs)
+
+
+    return true
+end
+hook_chat_command("toggle-explosions", "toggles honi's deafening explosions...", allow_explosion)
+
+local function allow_interact(m, obj, interactType)
+    -- prevent interaction for the local player,, who spawned the explosion
+    if (obj_has_behavior_id(obj, id_bhvExplosion) ~= 0 and obj.oHealth == 64) then
+        if m.playerIndex == 0 then
+            return false
+        end
+    end
+end
+hook_event(HOOK_ALLOW_INTERACT, allow_interact)
+
+local function spawn_explosion(m, particleWhenOff)
+    local e = gExtrasStates[m.playerIndex]
+
+    if e.explosionAllowed then
+        local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
+            explosionObj.oHealth = 64
+        end)
+    else spawn_particle(m, particleWhenOff)
+    end
+end
 
 function act_honi_walking(m)
     local startPos = m.pos;
@@ -345,8 +384,9 @@ local function update_honi(m)
 
         if m.input & INPUT_B_PRESSED ~= 0 and e.actionTick > 3 and e.boomCount > 0 then
             m.faceAngle.y = m.intendedYaw
+
+            spawn_explosion(m, PARTICLE_VERTICAL_STAR)
             
-            m.particleFlags = m.particleFlags | PARTICLE_VERTICAL_STAR
             play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
             mario_set_forward_vel(m, m.forwardVel + 30)
             e.gfxAngleX = 0x2800
@@ -453,6 +493,7 @@ local function update_honi(m)
         if m.input & INPUT_Z_PRESSED ~= 0 then
             m.vel.y = 20
             m.faceAngle.y = m.intendedYaw
+            spawn_explosion(m, PARTICLE_MIST_CIRCLE)
             set_mario_action(m, ACT_LONG_JUMP, 0) -- can long jump from dive slidesssss
         end
     else e.slideTimer = 0
@@ -462,6 +503,8 @@ local function update_honi(m)
     if m.action == ACT_BACKWARD_AIR_KB then
         if e.actionTick == 0 then
             m.invincTimer = 2
+            
+            spawn_explosion(m, PARTICLE_VERTICAL_STAR)
 
             play_character_sound(m, CHAR_SOUND_TWIRL_BOUNCE)
             play_mario_heavy_landing_sound(m, SOUND_ACTION_METAL_LANDING)
@@ -514,8 +557,9 @@ local function update_honi(m)
 
     if m.action == ACT_GROUND_POUND_LAND then
         if e.actionTick == 0 then
+            spawn_explosion(m, PARTICLE_HORIZONTAL_STAR)
+
             m.invincTimer = 2
-            m.particleFlags = m.particleFlags | PARTICLE_HORIZONTAL_STAR
             play_mario_sound(m, CHAR_SOUND_TWIRL_BOUNCE, CHAR_SOUND_TWIRL_BOUNCE)
             play_mario_heavy_landing_sound(m, SOUND_ACTION_METAL_LANDING)
 
