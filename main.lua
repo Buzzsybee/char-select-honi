@@ -10,6 +10,7 @@ end
 
 local E_MODEL_HONI = smlua_model_util_get_id("honi_geo")   -- Located in "actors"
 local TEX_ICON_HONI = get_texture_info("honi-icon")
+local HONI_GRAFFITI = get_texture_info("honi_graffiti")
 
 local PALETTE_HONI = {
     [PANTS]  = "5656FF",
@@ -42,3 +43,4 @@ CHAR_HONI = _G.charSelect.character_add(
 )
 
 if anims then charSelect.character_add_animations(E_MODEL_HONI, anims) end
+charSelect.character_add_graffiti(CHAR_HONI, HONI_GRAFFITI)
