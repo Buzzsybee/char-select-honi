@@ -69,7 +69,7 @@ local function update_honi_walking_speed(m)
     end
 
     if (m.intendedMag < maxTargetSpeed) then
-        targetSpeed = m.intendedMag + 20
+        targetSpeed = m.intendedMag;
     else
         targetSpeed = maxTargetSpeed
     end
@@ -648,6 +648,8 @@ local function update_honi(m)
 
     if m.action == ACT_WALKING then
         update_honi_walking_speed(m)
+
+        m.marioBodyState.torsoAngle.x = 0
     end
 end
 
