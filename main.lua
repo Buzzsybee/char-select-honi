@@ -13,14 +13,14 @@ local TEX_ICON_HONI = get_texture_info("honi-icon")
 local HONI_GRAFFITI = get_texture_info("honi_graffiti")
 
 local PALETTE_HONI = {
-    [PANTS]  = "5656FF",
-    [SHIRT]  = "4F8B4A",
-    [GLOVES] = "360099",
-    [SHOES]  = "995B53",
-    [HAIR]   = "8F1F31",
-    [SKIN]   = "FFA787",
-    [CAP]    = "5153FF",
-	[EMBLEM] = "000672"
+    [PANTS]  = "7480FF",
+    [SHIRT]  = "34FF33",
+    [GLOVES] = "5C65FF",
+    [SHOES]  = "7E2A1B",
+    [HAIR]   = "FF2833",
+    [SKIN]   = "AA6C36",
+    [CAP]    = "46B2FF",
+	[EMBLEM] = "FFFF00"
 }
 
 _G.charSelect.character_add_palette_preset(E_MODEL_HONI, PALETTE_HONI)
