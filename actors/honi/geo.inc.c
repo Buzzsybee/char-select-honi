@@ -293,7 +293,7 @@ const GeoLayout honi_B_LoD_Switch_opt0_Cap_State_Switch_opt1_Capless_Switch_opt0
 const GeoLayout honi_B_LoD_Switch_opt0_Cap_State_Switch_opt1[] = {
 	GEO_NODE_START(),
 	GEO_OPEN_NODE(),
-		GEO_ANIMATED_PART(LAYER_OPAQUE, 36, 0, 0, NULL),
+		GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, NULL),
 		GEO_OPEN_NODE(),
 			GEO_SCALE(LAYER_FORCE, 54986),
 			GEO_OPEN_NODE(),
@@ -495,7 +495,7 @@ const GeoLayout honi_B_LoD_Switch_opt0_Cap_State_Switch_opt2_jump_honi_Right_Han
 const GeoLayout honi_B_LoD_Switch_opt0_Cap_State_Switch_opt2[] = {
 	GEO_NODE_START(),
 	GEO_OPEN_NODE(),
-		GEO_ANIMATED_PART(LAYER_OPAQUE, 36, 0, 0, NULL),
+		GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, NULL),
 		GEO_OPEN_NODE(),
 			GEO_SCALE(LAYER_FORCE, 54986),
 			GEO_OPEN_NODE(),
@@ -690,7 +690,7 @@ const GeoLayout honi_B_LoD_Switch_opt0_Cap_State_Switch_opt3_jump_honi_Right_Han
 const GeoLayout honi_B_LoD_Switch_opt0_Cap_State_Switch_opt3[] = {
 	GEO_NODE_START(),
 	GEO_OPEN_NODE(),
-		GEO_ANIMATED_PART(LAYER_OPAQUE, 36, 0, 0, NULL),
+		GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, NULL),
 		GEO_OPEN_NODE(),
 			GEO_SCALE(LAYER_FORCE, 54986),
 			GEO_OPEN_NODE(),
@@ -909,7 +909,7 @@ const GeoLayout honi_geo[] = {
 						GEO_OPEN_NODE(),
 							GEO_NODE_START(),
 							GEO_OPEN_NODE(),
-								GEO_ANIMATED_PART(LAYER_OPAQUE, 36, 0, 0, NULL),
+								GEO_ANIMATED_PART(LAYER_OPAQUE, 0, 0, 0, NULL),
 								GEO_OPEN_NODE(),
 									GEO_SCALE(LAYER_FORCE, 54986),
 									GEO_OPEN_NODE(),
