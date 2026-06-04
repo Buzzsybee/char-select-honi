@@ -32,19 +32,6 @@ function get_current_speed(m)
     return math.sqrt((m.vel.x * m.vel.x) + (m.vel.z * m.vel.z))
 end
 
-local function make_actionable_on_run(m)
-    init_buttons(m)
-
-    if buttonP & A_BUTTON ~= 0 then 
-        spawn_particle(m, PARTICLE_MIST_CIRCLE)
-        set_mario_action(m, ACT_LONG_JUMP, 0)
-    end
-
-    if buttonP & B_BUTTON ~= 0 then 
-        set_mario_action(m, ACT_SLIDE_JUMP, 0)
-    end
-end
-
 local function reset_rotation(m, nextAct, actionArg)
     m.marioBodyState.allowPartRotation = 0
 end
@@ -59,14 +46,10 @@ hook_event(HOOK_ON_SET_MARIO_ACTION, reset_pitch)
 
 local function update_honi_walking_speed(m)
     local e = gExtrasStates[m.playerIndex]
-    local maxTargetSpeed = 0.0;
+    local maxTargetSpeed = e.lastSpeed;
     local targetSpeed = 0.0;
 
-    if (m.floor ~= nil and m.floor.type == SURFACE_SLOW) then
-        maxTargetSpeed = e.lastSpeed;
-    else
-        maxTargetSpeed = e.lastSpeed;
-    end
+    if m.playerIndex ~= 0 then return end
 
     if (m.intendedMag < maxTargetSpeed) then
         targetSpeed = m.intendedMag;
@@ -74,9 +57,7 @@ local function update_honi_walking_speed(m)
         targetSpeed = maxTargetSpeed
     end
 
-    if (m.forwardVel <= 0.0) then
-        m.forwardVel = m.forwardVel + 2.1;
-    elseif (m.forwardVel <= targetSpeed) then
+    if (m.forwardVel <= 0.0) or (m.forwardVel <= targetSpeed) then
         m.forwardVel = m.forwardVel + 2.1;
     end
 
@@ -128,15 +109,14 @@ ACT_HONI_WALK = allocate_mario_action(ACT_GROUP_MOVING | ACT_FLAG_ALLOW_FIRST_PE
 
 local function allow_explosion()
     local e = gExtrasStates[0]
-    local explosionIs = "off" or "on"
+    local explosionIs = true or false
 
     if e.explosionAllowed then e.explosionAllowed = false
-    explosionIs = "off"
-    else e.explosionAllowed = true explosionIs = "on" end
+    explosionIs = false
+    else e.explosionAllowed = true explosionIs = true end
 
     djui_chat_message_create("explosion has been toggled :3c")
-    djui_chat_message_create("explosions are:")
-    djui_chat_message_create(explosionIs)
+    djui_chat_message_create("explosions are:" .. tostring(explosionIs))
 
 
     return true
@@ -155,11 +135,15 @@ hook_event(HOOK_ALLOW_INTERACT, allow_interact)
 
 local function spawn_explosion(m, particleWhenOff)
     local e = gExtrasStates[m.playerIndex]
+    --in order to avoid other players running code for a specific player, so this
+    if m.playerIndex ~= 0 then return end
+    --this tells the game, "hey, if this isnt the local player, who is probably the one causing this code to run, stop running it completely,"
 
     if e.explosionAllowed then
         local explosionObj  = spawn_sync_object(id_bhvExplosion, E_MODEL_EXPLOSION, m.pos.x, m.pos.y, m.pos.z, function(explosionObj)
             explosionObj.oHealth = 64
         end)
+        --if the player should only explode once, besure to set the variable to false
     else spawn_particle(m, particleWhenOff)
     end
 end
@@ -331,6 +315,8 @@ local function update_honi(m)
     local mag = (m.controller.stickMag) / 64
     init_buttons(m)
     
+    if m.playerIndex ~= 0 then return end
+
     m.peakHeight = m.pos.y
 
     -- Global Action Timer 
@@ -656,5 +642,5 @@ end
 _G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_MARIO_UPDATE, update_honi)
 _G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_LEVEL_INIT, reset_honi_states)
 _G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_SET_MARIO_ACTION, honi_on_set_action)
-_G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_INTERACT, honi_interact)
+--_G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_ON_INTERACT, honi_interact)
 _G.charSelect.character_hook_moveset(CHAR_HONI, HOOK_BEFORE_MARIO_UPDATE, before_honi_update)
